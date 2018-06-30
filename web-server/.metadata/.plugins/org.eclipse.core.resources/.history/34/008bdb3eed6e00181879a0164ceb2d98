@@ -1,0 +1,123 @@
+package webserver;
+
+import java.io.File;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Properties;
+
+import action.Action;
+
+
+public class ActionLoader {
+
+
+	private static Properties properties;
+	private static ActionLoader actionLoader;
+
+
+	//Singletonクラスのprivateコンストラクタ
+	private ActionLoader() {
+		loadProperties();
+
+	}
+
+	// 定義ファイよりActionクラスのインスタンスを生成
+	public static Action load(String key) throws Exception {
+
+		//Singletonインスタンスの生成
+		if (actionLoader == null) {
+			actionLoader = new ActionLoader();
+		}
+
+		ActionDefinition def = getActionDefinition(key);
+
+		if (def == null) {
+			return null;
+		}
+
+		//jarファイルを取得する
+		File jarFile = new File("lib/" + def.getJarFilePath());
+
+		if (jarFile.exists()) {
+
+			//クラスをロード
+			java.net.URLClassLoader loader = URLClassLoader.newInstance(new URL[]{jarFile.toURI().toURL()});
+
+			Class clazz = loader.loadClass(def.getClassName());
+			loader.close();
+
+			//インスタンスを生成する
+			Object obj = clazz.newInstance();
+
+			//Actionにキャストする
+			return (Action) obj;
+		}
+		return null;
+
+	}
+
+	private static ActionDefinition getActionDefinition (String key) {
+
+		String addOnDefinition = actionLoader.properties.getProperty(key);
+
+		if (addOnDefinition == null) {
+
+			//動的に定義追加された場合を考慮し、定義ファイルを再読み込みする
+			loadProperties();
+			addOnDefinition = actionLoader.properties.getProperty(key);
+			if (addOnDefinition == null) {
+				//定義ファイルの再読み込み後にも見つからない場合は対象無しとする
+				return null;
+			}
+		}
+
+		String[] def = addOnDefinition.split(":");
+
+		if (def.length != 2) {
+			return null;
+		}
+
+		ActionDefinition actionDefinition = actionLoader.new ActionDefinition();
+
+		actionDefinition.setClassName(def[0]);
+		actionDefinition.setJarFilePath(def[1]);
+
+		return actionDefinition;
+	}
+
+
+	private static void loadProperties() {
+	    try {
+	    	properties = new Properties();
+	        InputStream inputStream = ActionLoader.class.getResourceAsStream("/action.properties");
+	        properties.load(inputStream);
+	        inputStream.close();
+	    } catch (Exception ex) {
+	        System.out.println(ex.getMessage());
+
+	    }
+	}
+
+	//Action定義情報格納用のインナークラス
+	private class ActionDefinition {
+		private String jarFilePath;
+		private String className;
+
+		public String getJarFilePath() {
+			return jarFilePath;
+		}
+		public void setJarFilePath(String jarFilePath) {
+			this.jarFilePath = jarFilePath;
+		}
+		public String getClassName() {
+			return className;
+		}
+		public void setClassName(String className) {
+			this.className = className;
+		}
+
+
+	}
+
+}

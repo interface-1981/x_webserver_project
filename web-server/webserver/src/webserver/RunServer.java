@@ -28,95 +28,100 @@ public class RunServer {
 			ss = new ServerSocket(port);
 
 			while(true) {
-				//サーバー側ソケット作成
-		        Socket sc = ss.accept();
+				Socket sc = null;
+				BufferedReader br = null;
+				OutputStream out = null;
 
-		        //ソケットから入力ストリームを取得
-				BufferedReader br = new BufferedReader(new InputStreamReader(sc.getInputStream()));
+				try{
+					//サーバー側ソケット作成
+			        sc = ss.accept();
 
-				Map<String, String> requestParameter = new HashMap<String, String>();
-				String requestURL = "";
-				String requestFileName = "";
-				String line = br.readLine();
-				while(line != null && !line.equals("")) {
+			        //ソケットから入力ストリームを取得
+					br = new BufferedReader(new InputStreamReader(sc.getInputStream()));
 
-					System.out.println(line);
-					if (line.startsWith("GET /")
-							&& line.endsWith(" HTTP/1.1")) {
-						//GET /[RequestURL] HTTP/1.1
-						//上記パラメータの[RequestURL]部分を取得する
-						requestURL = line.replaceAll("GET /", "").replaceAll(" HTTP/1.1", "");
+					Map<String, String> requestParameter = new HashMap<String, String>();
+					String requestURL = "";
+					String requestFileName = "";
+					String line = br.readLine();
+					while(line != null && !line.equals("")) {
 
-						//GETパラメータの取得(RequestURLの?以降)
-						String[] urlArray = requestURL.split("\\?");
-						requestFileName = urlArray[0];
-						if (urlArray.length == 2) {
-							String[] paramArray = urlArray[1].split("&");
+						System.out.println(line);
+						if (line.startsWith("GET /")
+								&& line.endsWith(" HTTP/1.1")) {
+							//GET /[RequestURL] HTTP/1.1
+							//上記パラメータの[RequestURL]部分を取得する
+							requestURL = line.replaceAll("GET /", "").replaceAll(" HTTP/1.1", "");
 
-							for (int i = 0; i < paramArray.length; ++i) {
-								String[] keyValueArray = paramArray[i].split("=");
-								if (keyValueArray.length == 2) {
-									requestParameter.put(keyValueArray[0], keyValueArray[1]);
+							String[] urlArray = requestURL.split("\\?");
+							requestFileName = urlArray[0];
+							if (urlArray.length == 2) {
+								String[] paramArray = urlArray[1].split("&");
+
+								for (int i = 0; i < paramArray.length; ++i) {
+									String[] keyValueArray = paramArray[i].split("=");
+									if (keyValueArray.length == 2) {
+										requestParameter.put(keyValueArray[0], keyValueArray[1]);
+									}
 								}
 							}
 						}
+						line = br.readLine();
 					}
-					line = br.readLine();
-				}
 
-				OutputStream out = sc.getOutputStream();
+					out = sc.getOutputStream();
+					Action action = ActionLoader.load(requestFileName);
+					if (action != null) {
+						action.execute(requestParameter, out);
+						out.flush();
+						out.close();
+						br.close();
+						continue;
+					}
 
-				//Actionのサブクラスの動的生成
-				Action action = null;
-				try {
-		            // クラスの取得
-		            Class<?> c = Class.forName(requestFileName);
-		            // インスタンスの生成
-		            action  = (Action)c.newInstance();
+
+					//リクエストURLから取得したファイルを読み込む
+					File file = new File (rootDir + "/" + requestFileName);
+					if (file.exists() && !requestFileName.equals("")) {
+
+						//ソケットから出力ストリームを取得
+						BufferedOutputStream bo = new BufferedOutputStream(out);
+
+						FileInputStream fi = new FileInputStream(file);
+
+						//bo.write("HTTP/1.1 200 OK".getBytes());
+						while(fi.available() > 0) {
+							byte[] b = new byte[fi.available()];
+							fi.read(b);
+							bo.write(b);
+						}
+						bo.flush();
+						bo.close();
+						fi.close();
+					}else {
+						//ソケットから出力ストリームを取得
+						BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out));
+
+						bw.write("HTTP/1.1 404 Not Found");
+						bw.flush();
+						bw.close();
+					}
+
+					br.close();
+					System.out.println("resopnse " + requestFileName);
+
 
 				} catch (Exception e) {
-					// 無視
-				}
-
-	            if (action != null) {
-					action.execute(requestParameter, out);
-					out.flush();
-					out.close();
-					br.close();
-					continue;
-				}
-
-				//リクエストURLから取得したファイルを読み込む
-				File file = new File (rootDir + "/" + requestFileName);
-				if (file.exists() && !requestFileName.equals("")) {
-
-					//ソケットから出力ストリームを取得
-					BufferedOutputStream bo = new BufferedOutputStream(out);
-
-					FileInputStream fi = new FileInputStream(file);
-
-					//bo.write("HTTP/1.1 200 OK".getBytes());
-					while(fi.available() > 0) {
-						byte[] b = new byte[fi.available()];
-						fi.read(b);
-						bo.write(b);
+					// TODO 自動生成された catch ブロック
+					e.printStackTrace();
+				} finally {
+					if (br != null) {
+						br.close();
 					}
-					bo.flush();
-					bo.close();
-					fi.close();
-				}else {
-					//ソケットから出力ストリームを取得
-					BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out));
-
-					bw.write("HTTP/1.1 404 Not Found");
-					bw.flush();
-					bw.close();
+					if (out != null) {
+						out.close();
+					}
 				}
-
-				br.close();
-				System.out.println("resopnse " + requestFileName);
 			}
-
 		} catch (Exception e) {
 			// TODO 自動生成された catch ブロック
 			e.printStackTrace();

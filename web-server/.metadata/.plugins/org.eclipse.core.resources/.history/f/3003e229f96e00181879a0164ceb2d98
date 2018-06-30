@@ -1,0 +1,132 @@
+package webserver;
+
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Paths;
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+import action.Action;
+
+
+public class ActionLoader {
+
+
+	private static ResourceBundle resourceBundle;
+	private static ActionLoader actionLoader;
+
+
+	//Singletonクラスのprivateコンストラクタ
+	private ActionLoader() {
+		loadProperties();
+
+	}
+
+	// 定義ファイよりActionクラスのインスタンスを生成
+	public static Action load(String key) throws Exception {
+
+		//Singletonインスタンスの生成
+		if (actionLoader == null) {
+			actionLoader = new ActionLoader();
+		}
+
+		ActionDefinition def = getActionDefinition(key);
+
+		if (def == null) {
+			System.out.println("Not found defifnition. [key:" + key + "]");
+			return null;
+		}
+
+		//jarファイルを取得する
+		File jarFile = new File("lib/" + def.getJarFileName());
+
+		if (jarFile.exists()) {
+
+			//クラスをロード
+			System.out.println("jar:" + jarFile.toURI().toURL());
+			System.out.println("class:" + def.getClassName());
+			java.net.URLClassLoader loader = URLClassLoader.newInstance(new URL[]{jarFile.toURI().toURL()});
+
+			Class clazz = loader.loadClass(def.getClassName());
+			loader.close();
+
+			//インスタンスを生成する
+			Object obj = clazz.newInstance();
+
+			//Actionにキャストする
+			return (Action) obj;
+		} else {
+			System.out.println("Not found jar file. [fileName:" + def.getJarFileName() + "]");
+		}
+		return null;
+
+	}
+
+	private static ActionDefinition getActionDefinition (String key) {
+
+		String value = actionLoader.resourceBundle.getString(key);
+
+		if (value == null) {
+
+			//動的に定義追加された場合を考慮し、定義ファイルを再読み込みする
+			loadProperties();
+			value = actionLoader.resourceBundle.getString(key);
+			if (value == null) {
+				//定義ファイルの再読み込み後にも見つからない場合は対象無しとする
+				return null;
+			}
+		}
+
+		String[] defStrArray = value.split(":");
+
+		if (defStrArray.length != 2) {
+			return null;
+		}
+
+		ActionDefinition actionDefinition = actionLoader.new ActionDefinition();
+
+		actionDefinition.setClassName(defStrArray[0]);
+		actionDefinition.setJarFileName(defStrArray[1]);
+
+		return actionDefinition;
+	}
+
+
+	private static void loadProperties() {
+	    try {
+
+            File dicDir = Paths.get(".").toFile();
+            URLClassLoader urlLoader;
+            urlLoader = new URLClassLoader(new URL[]{dicDir.toURI().toURL()});
+
+            resourceBundle = ResourceBundle.getBundle("action", Locale.getDefault(), urlLoader);
+
+	    } catch (Exception ex) {
+	        System.out.println(ex.getMessage());
+
+	    }
+	}
+
+	//Action定義情報格納用のインナークラス
+	private class ActionDefinition {
+		private String JarFileName;
+		private String className;
+
+		public String getJarFileName() {
+			return JarFileName;
+		}
+		public void setJarFileName(String JarFileName) {
+			this.JarFileName = JarFileName;
+		}
+		public String getClassName() {
+			return className;
+		}
+		public void setClassName(String className) {
+			this.className = className;
+		}
+
+
+	}
+
+}
