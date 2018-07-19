@@ -1,0 +1,28 @@
+package template;
+
+import java.util.Date;
+
+import template.TemplateEngine;
+
+public class Test {
+
+	public static void main(String[] args) {
+		// TODO 自動生成されたメソッド・スタブ
+		TemplateEngine t = new TemplateEngine("D:\\webサーバー開発\\template");
+		Context c = new Test().new Context();
+		c.setTitle("test : " + new Date().toString());
+		User u = new Test().new User();
+		u.setName("User1");
+		u.setName("User1@iface.jp");
+		c.setUser(u);
+		try {
+			t.parse("TemplateSample.txt", c);
+		} catch (Exception e) {
+			// TODO 自動生成された catch ブロック
+			e.printStackTrace();
+		}
+
+	}
+
+
+}

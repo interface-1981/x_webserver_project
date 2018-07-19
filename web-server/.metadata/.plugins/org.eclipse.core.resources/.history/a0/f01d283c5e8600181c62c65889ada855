@@ -1,0 +1,50 @@
+package template;
+
+public class TemplateEngine {
+
+	private static final String LOGIC_TAG_START = "$[";
+	private static final String LOGIC_TAG_END = "]$";
+
+	private static final String LOGIC_IF = "IF";
+	private static final String LOGIC_FOREACH = "FOREACH";
+
+
+	private static final String PROPARTY_TAG_START = "@(";
+	private static final String PROPARTY_TAG_END = ")@";
+
+	private String templateDir;
+
+	public TemplateEngine(String templateDir) {
+		super();
+		this.templateDir = templateDir;
+	}
+
+	public String parse() {
+
+		String str = "aaaaa@(prop.kkk)@hhhhhhh";
+		if (existsLogicTag(str)) {
+			str = replacePropertyTag(str, "1234");
+		}
+		return "";
+	}
+
+	private boolean existsLogicTag(String str) {
+
+		if (str.indexOf(PROPARTY_TAG_START) >= 0) {
+			if (str.indexOf(PROPARTY_TAG_END) >= 0) {
+				return true;
+			}
+		}
+		return false;
+
+	}
+
+	private String replacePropertyTag(String str, String propStr) {
+
+		int tagStart = str.indexOf(PROPARTY_TAG_START);
+		int tagEnd = str.indexOf(PROPARTY_TAG_END) + PROPARTY_TAG_START.length();
+		String tag = str.substring(tagStart, tagEnd);
+		return str.replace(tag, propStr);
+
+	}
+}
